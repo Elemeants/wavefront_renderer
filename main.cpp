@@ -1,17 +1,17 @@
 
 #include <GL/glut.h>
 
+#include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <cmath>
 
 #ifndef PI
 #define PI 3.14159265358979323846
 #endif
-
 
 #define ALLOW_WAVEFRONT_PARSING_DEBUG_LOGS false
 
@@ -27,7 +27,8 @@ typedef struct {
 } g3DPoint;
 
 g3DPoint centroid3D(g3DPoint p1, g3DPoint p2, g3DPoint p3) {
-  return { (p1.x + p2.x + p3.x) / 3, (p1.y + p2.y + p3.y) / 3, (p1.z + p2.z + p3.z) / 3};
+  return {(p1.x + p2.x + p3.x) / 3, (p1.y + p2.y + p3.y) / 3,
+          (p1.z + p2.z + p3.z) / 3};
 }
 
 g3DPoint sum(g3DPoint p1, g3DPoint p2) {
@@ -39,7 +40,8 @@ g3DPoint subs(g3DPoint p1, g3DPoint p2) {
 }
 
 g3DPoint cross(g3DPoint p1, g3DPoint p2) {
-  return {(p1.y * p2.z) - (p1.z * p2.y), (p1.z * p2.x) - (p1.x * p2.z), (p1.x * p2.y) - (p1.y * p2.x)};
+  return {(p1.y * p2.z) - (p1.z * p2.y), (p1.z * p2.x) - (p1.x * p2.z),
+          (p1.x * p2.y) - (p1.y * p2.x)};
 }
 
 g3DPoint normalize(g3DPoint p1) {
@@ -66,6 +68,13 @@ typedef struct {
 } g3DLine;
 
 typedef struct {
+  g3DPoint pos;
+  GLfloat red;
+  GLfloat green;
+  GLfloat blue;
+} gLight;
+
+typedef struct {
   std::vector<g3DPoint> vertices;
 
   //
@@ -81,11 +90,12 @@ typedef enum {
   RENDER_WIREFRAME,
   RENDER_RANDOM_COLOR_FACES,
   RENDER_GRAY_SCALE,
+  RENDER_COLORED_LIGHT,
   RENDER_END,
 } eRenderMethod;
 
 static g3DModel model;
-static eRenderMethod renderMethod = RENDER_GRAY_SCALE;
+static eRenderMethod renderMethod = RENDER_COLORED_LIGHT;
 static bool rotate = false;
 
 static void glut_post_redisplay_p(void) {
@@ -95,7 +105,7 @@ static void glut_post_redisplay_p(void) {
   if (t0 < 0.) t0 = t;
   dt = t - t0;
 
-  if (dt < 1. / 30.) return;
+  if (dt < 1. / 60.) return;
 
   t0 = t;
 
@@ -138,6 +148,7 @@ void mainRenderLoop();
 void renderWireframe();
 void renderTriangesRandomColor();
 void renderWithGreyScale();
+void renderWithColoredLight();
 void loadObjWavefront();
 g3DPoint parseVectorLine(const std::string& line);
 std::vector<int> parseFace(const std::string& line);
@@ -179,6 +190,9 @@ void mainRenderLoop() {
       break;
     case RENDER_GRAY_SCALE:
       renderWithGreyScale();
+      break;
+    case RENDER_COLORED_LIGHT:
+      renderWithColoredLight();
       break;
     default:
       break;
@@ -222,23 +236,75 @@ void renderTriangesRandomColor() {
 }
 
 void renderWithGreyScale() {
-  g3DPoint light = { 0, 0.5, 1 };
+  g3DPoint light = {0, 0.5, 1};
 
   for (size_t i = 0; i < model.faces.size(); i++) {
     g3DPoint p0 = model.vertices[model.faces[i][0]];
     g3DPoint p1 = model.vertices[model.faces[i][1]];
     g3DPoint p2 = model.vertices[model.faces[i][2]];
 
-    g3DPoint a = normalize(cross(
-      subs(p1, p0),
-      subs(p2, p0)
-    ));
+    g3DPoint a = normalize(cross(subs(p1, p0), subs(p2, p0)));
     float lightIntensity = multiplyf(a, light);
 
-    if (lightIntensity < 0) { lightIntensity = 0; }
+    if (lightIntensity < 0) {
+      lightIntensity = 0;
+    }
 
     glBegin(GL_TRIANGLES);
     glColor3f(lightIntensity, lightIntensity, lightIntensity);
+    glVertex3f(p0.x, p0.y, p0.z);
+    glVertex3f(p1.x, p1.y, p1.z);
+    glVertex3f(p2.x, p2.y, p2.z);
+    glEnd();
+  }
+}
+
+void renderWithColoredLight() {
+  std::vector<gLight> lights = {{{0, 1, -1}, 14, 20, 140},
+                                {{0, 0, 1}, 200, 10, 10}};
+
+  for (size_t i = 0; i < model.faces.size(); i++) {
+    g3DPoint p0 = model.vertices[model.faces[i][0]];
+    g3DPoint p1 = model.vertices[model.faces[i][1]];
+    g3DPoint p2 = model.vertices[model.faces[i][2]];
+
+    g3DPoint surfaceNormal = normalize(cross(subs(p1, p0), subs(p2, p0)));
+
+    std::vector<std::pair<float, gLight>> lightsIntensity;
+    lightsIntensity.resize(lights.size());
+
+    std::transform(lights.begin(), lights.end(), lightsIntensity.begin(),
+                   [&](const gLight& light) -> std::pair<float, gLight> {
+                     return std::make_pair(multiplyf(surfaceNormal, light.pos),
+                                           light);
+                   });
+
+    // lightsIntensity.erase(std::remove_if(lightsIntensity.begin(),
+    // lightsIntensity.end(),
+    //                           [](const std::pair<float, gLight>& light) {
+    //                           return light.; }),
+    //            lightsIntensity.end());
+
+    // lightsIntensity.
+
+    std::vector<std::pair<float, gLight>>::iterator max_light =
+        std::max_element(lightsIntensity.begin(), lightsIntensity.end(),
+                         [](const std::pair<float, gLight>& lightA,
+                            const std::pair<float, gLight>& lightB) -> int {
+                           return lightA.first < lightB.first;
+                         });
+
+    float lightIntensity = max_light->first;
+    gLight light = max_light->second;
+
+    if (lightIntensity < 0) {
+      lightIntensity = 0;
+    }
+
+    glBegin(GL_TRIANGLES);
+    glColor3f((lightIntensity * light.red) / 255,
+              (lightIntensity * light.green) / 255,
+              (lightIntensity * light.blue) / 255);
     glVertex3f(p0.x, p0.y, p0.z);
     glVertex3f(p1.x, p1.y, p1.z);
     glVertex3f(p2.x, p2.y, p2.z);
