@@ -97,11 +97,12 @@ typedef enum {
   RENDER_RANDOM_COLOR_FACES,
   RENDER_GRAY_SCALE,
   RENDER_COLORED_LIGHT,
+  RENDER_WITH_TEXTURE,
   RENDER_END,
 } eRenderMethod;
 
 static g3DModel model;
-static eRenderMethod renderMethod = RENDER_COLORED_LIGHT;
+static eRenderMethod renderMethod = RENDER_WITH_TEXTURE;
 static bool rotate = false;
 
 static void glut_post_redisplay_p(void) {
@@ -144,7 +145,7 @@ static void handleKeyboard(unsigned char key, int x, int y) {
     case 'c':
       renderMethod = (eRenderMethod)((int)renderMethod + 1);
       if (renderMethod >= RENDER_END) {
-        renderMethod = RENDER_GRAY_SCALE;
+        renderMethod = RENDER_WIREFRAME;
       }
       break;
   }
@@ -155,6 +156,7 @@ void renderWireframe();
 void renderTriangesRandomColor();
 void renderWithGreyScale();
 void renderWithColoredLight();
+void renderWithTexture();
 void loadObjWavefront();
 g3DPoint parseVectorLine(const std::string& line);
 std::vector<int> parseFace(const std::string& line);
@@ -188,17 +190,20 @@ void mainRenderLoop() {
     glRotatef(1.0, 0.0, 1.0, 0.0);
   }
   switch (renderMethod) {
-    // case RENDER_WIREFRAME:
-    //   renderWireframe();
-    //   break;
-    // case RENDER_RANDOM_COLOR_FACES:
-    //   renderTriangesRandomColor();
-    //   break;
+    case RENDER_WIREFRAME:
+      renderWireframe();
+      break;
+    case RENDER_RANDOM_COLOR_FACES:
+      renderTriangesRandomColor();
+      break;
     case RENDER_GRAY_SCALE:
       renderWithGreyScale();
       break;
     case RENDER_COLORED_LIGHT:
       renderWithColoredLight();
+      break;
+    case RENDER_WITH_TEXTURE:
+      renderWithTexture();
       break;
     default:
       break;
@@ -323,6 +328,31 @@ void renderWithColoredLight() {
 
     glBegin(GL_TRIANGLES);
     glColor3f(color.red, color.green, color.blue);
+    glVertex3f(p0.x, p0.y, p0.z);
+    glVertex3f(p1.x, p1.y, p1.z);
+    glVertex3f(p2.x, p2.y, p2.z);
+    glEnd();
+  }
+}
+
+void renderWithTexture() {
+  g3DPoint light = {0, 0.5, 1};
+  // TODO working on this.
+
+  for (size_t i = 0; i < model.faces.size(); i++) {
+    g3DPoint p0 = model.vertices[model.faces[i][0]];
+    g3DPoint p1 = model.vertices[model.faces[i][1]];
+    g3DPoint p2 = model.vertices[model.faces[i][2]];
+
+    g3DPoint a = normalize(cross(subs(p1, p0), subs(p2, p0)));
+    float lightIntensity = multiplyf(a, light);
+
+    if (lightIntensity < 0) {
+      lightIntensity = 0;
+    }
+
+    glBegin(GL_TRIANGLES);
+    glColor3f(lightIntensity, lightIntensity, lightIntensity);
     glVertex3f(p0.x, p0.y, p0.z);
     glVertex3f(p1.x, p1.y, p1.z);
     glVertex3f(p2.x, p2.y, p2.z);
