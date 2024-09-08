@@ -105,22 +105,22 @@ static void glut_post_redisplay_p(void) {
 static void handleKeyboard(unsigned char key, int x, int y) {
   switch (key) {
     case 'w':
-      glTranslatef(0, 0, 0.1);
+      glTranslatef(0, 0, 0.05);
       break;
     case 's':
-      glTranslatef(0, 0, -0.1);
+      glTranslatef(0, 0, -0.05);
       break;
     case 'a':
-      glTranslatef(-0.1, 0, 0);
+      glTranslatef(-0.05, 0, 0);
       break;
     case 'd':
-      glTranslatef(0.1, 0, 0);
+      glTranslatef(0.05, 0, 0);
       break;
     case 'q':
-      glTranslatef(0, 0.1, 0);
+      glTranslatef(0, 0.05, 0);
       break;
     case 'e':
-      glTranslatef(0, -0.1, 0);
+      glTranslatef(0, -0.05, 0);
       break;
     case 'z':
       rotate = !rotate;
@@ -153,8 +153,11 @@ int main(int argc, char** argv) {
     exit(1);
   }
 
+  glShadeModel(GL_FLAT);
+  glFrontFace(GL_CW);
+  glEnable(GL_DEPTH_TEST);
   glMatrixMode(GL_MODELVIEW);
-
+  glRotatef(180.0, 0.0, 1.0, 0.0);
   glutKeyboardFunc(handleKeyboard);
   glutIdleFunc(glut_post_redisplay_p);
   glutDisplayFunc(mainRenderLoop);
@@ -219,7 +222,7 @@ void renderTriangesRandomColor() {
 }
 
 void renderWithGreyScale() {
-  g3DPoint light = { 0, 0, 1 };
+  g3DPoint light = { 0, 0.5, 1 };
 
   for (size_t i = 0; i < model.faces.size(); i++) {
     g3DPoint p0 = model.vertices[model.faces[i][0]];
@@ -232,7 +235,7 @@ void renderWithGreyScale() {
     ));
     float lightIntensity = multiplyf(a, light);
 
-    if (lightIntensity <= 0) { continue; }
+    if (lightIntensity < 0) { lightIntensity = 0; }
 
     glBegin(GL_TRIANGLES);
     glColor3f(lightIntensity, lightIntensity, lightIntensity);
