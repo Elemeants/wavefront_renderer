@@ -266,9 +266,9 @@ void renderWithGreyScale() {
 }
 
 void renderWithColoredLight() {
-  std::vector<gLight> lights = {{{0, 0, 1}, 140, 0, 0},
-                                {{1, 0, 0}, 250, 250, 250},
-                                {{-1, 0, 0}, 250, 250, 250}};
+  std::vector<gLight> lights = {{{0, 1, -1}, 0, 0, 140},
+                                {{0, 1, 1}, 140, 0, 0},
+                                {{0, 0, 0}, 0, 140, 0}};
 
   for (size_t i = 0; i < model.faces.size(); i++) {
     g3DPoint p0 = model.vertices[model.faces[i][0]];
@@ -333,7 +333,7 @@ void renderWithColoredLight() {
 void loadObjWavefront() {
   std::ifstream in;
   std::cout << "Loading wavefront obj" << std::endl;
-  in.open("./wavefront_objs/head/head.obj", std::ifstream::in);
+  in.open("./wavefront_objs/head/model.obj", std::ifstream::in);
   if (in.fail()) {
     std::cout << "Error loading wavefront object" << std::endl;
     exit(1);
