@@ -68,6 +68,12 @@ typedef struct {
 } g3DLine;
 
 typedef struct {
+  GLfloat red;
+  GLfloat green;
+  GLfloat blue;
+} gRGBColor;
+
+typedef struct {
   g3DPoint pos;
   GLfloat red;
   GLfloat green;
@@ -138,7 +144,7 @@ static void handleKeyboard(unsigned char key, int x, int y) {
     case 'c':
       renderMethod = (eRenderMethod)((int)renderMethod + 1);
       if (renderMethod >= RENDER_END) {
-        renderMethod = RENDER_WIREFRAME;
+        renderMethod = RENDER_GRAY_SCALE;
       }
       break;
   }
@@ -182,12 +188,12 @@ void mainRenderLoop() {
     glRotatef(1.0, 0.0, 1.0, 0.0);
   }
   switch (renderMethod) {
-    case RENDER_WIREFRAME:
-      renderWireframe();
-      break;
-    case RENDER_RANDOM_COLOR_FACES:
-      renderTriangesRandomColor();
-      break;
+    // case RENDER_WIREFRAME:
+    //   renderWireframe();
+    //   break;
+    // case RENDER_RANDOM_COLOR_FACES:
+    //   renderTriangesRandomColor();
+    //   break;
     case RENDER_GRAY_SCALE:
       renderWithGreyScale();
       break;
@@ -260,8 +266,9 @@ void renderWithGreyScale() {
 }
 
 void renderWithColoredLight() {
-  std::vector<gLight> lights = {{{0, 1, -1}, 14, 20, 140},
-                                {{0, 0, 1}, 200, 10, 10}};
+  std::vector<gLight> lights = {{{0, 0, 1}, 140, 0, 0},
+                                {{1, 0, 0}, 250, 250, 250},
+                                {{-1, 0, 0}, 250, 250, 250}};
 
   for (size_t i = 0; i < model.faces.size(); i++) {
     g3DPoint p0 = model.vertices[model.faces[i][0]];
@@ -279,32 +286,43 @@ void renderWithColoredLight() {
                                            light);
                    });
 
-    // lightsIntensity.erase(std::remove_if(lightsIntensity.begin(),
-    // lightsIntensity.end(),
-    //                           [](const std::pair<float, gLight>& light) {
-    //                           return light.; }),
-    //            lightsIntensity.end());
+    // Remove negative light intensity
+    lightsIntensity.erase(
+        std::remove_if(lightsIntensity.begin(), lightsIntensity.end(),
+                       [](const std::pair<float, gLight>& light) {
+                         return light.first < 0;
+                       }),
+        lightsIntensity.end());
 
-    // lightsIntensity.
+    // Normalize light intensity
+    float magnitude = 0;
+    float maxLightIntensity = 0;
+    for (size_t i = 0; i < lightsIntensity.size(); ++i) {
+      magnitude += lightsIntensity[i].first;
+      if (lightsIntensity[i].first > maxLightIntensity) {
+        maxLightIntensity = lightsIntensity[i].first;
+      }
+    }
 
-    std::vector<std::pair<float, gLight>>::iterator max_light =
-        std::max_element(lightsIntensity.begin(), lightsIntensity.end(),
-                         [](const std::pair<float, gLight>& lightA,
-                            const std::pair<float, gLight>& lightB) -> int {
-                           return lightA.first < lightB.first;
-                         });
+    // After normalization get the color on `float`
+    for (size_t i = 0; i < lightsIntensity.size(); ++i) {
+      lightsIntensity[i].first =
+          (lightsIntensity[i].first / (magnitude * maxLightIntensity * 255.0f));
+      lightsIntensity[i].second.red *= lightsIntensity[i].first;
+      lightsIntensity[i].second.green *= lightsIntensity[i].first;
+      lightsIntensity[i].second.blue *= lightsIntensity[i].first;
+    }
 
-    float lightIntensity = max_light->first;
-    gLight light = max_light->second;
-
-    if (lightIntensity < 0) {
-      lightIntensity = 0;
+    // Mix the colors
+    gRGBColor color = {0, 0, 0};
+    for (size_t i = 0; i < lightsIntensity.size(); ++i) {
+      color.red += lightsIntensity[i].second.red;
+      color.green += lightsIntensity[i].second.green;
+      color.blue += lightsIntensity[i].second.blue;
     }
 
     glBegin(GL_TRIANGLES);
-    glColor3f((lightIntensity * light.red) / 255,
-              (lightIntensity * light.green) / 255,
-              (lightIntensity * light.blue) / 255);
+    glColor3f(color.red, color.green, color.blue);
     glVertex3f(p0.x, p0.y, p0.z);
     glVertex3f(p1.x, p1.y, p1.z);
     glVertex3f(p2.x, p2.y, p2.z);
