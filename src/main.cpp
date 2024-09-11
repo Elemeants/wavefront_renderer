@@ -3,6 +3,8 @@
 #include "geom.hpp"
 #include "lights.hpp"
 #include "models.hpp"
+#include "wavefront_loader.hpp"
+#include "scene.hpp"
 
 #ifndef __RENDERER_VERSION__
 #define __RENDERER_VERSION__ "unknown"
@@ -11,13 +13,14 @@
 typedef enum {
   RENDER_WIREFRAME,
   RENDER_GRAY_SCALE,
-  RENDER_COLORED_LIGHT,
+  RENDER_TEXTURED,
   RENDER_END,
 } eRenderMethod;
 
-static Object3D model;
-static eRenderMethod renderMethod = RENDER_COLORED_LIGHT;
+static Scene globalScene;
+static eRenderMethod renderMethod = RENDER_TEXTURED;
 static bool rotate = false;
+static bool isLightningEnabled = false;
 
 static void glut_post_redisplay_p(void) {
   static double t0 = -1.;
@@ -62,18 +65,29 @@ static void handleKeyboard(unsigned char key, int x, int y) {
         renderMethod = RENDER_WIREFRAME;
       }
       break;
+    case 'l':
+      isLightningEnabled = !isLightningEnabled;
+      break;
   }
 }
 
+void loadTextures();
 void mainRenderLoop();
 void renderWireframe();
 void renderWithGreyScale();
-void renderWithColoredLight();
 void renderWithTexture();
+void renderWithTexture();
+
+void setupScene() {
+  globalScene.models = {WavefrontObjLoader::loadObjWavefrontObj(
+      "../wavefront_objs/head/model.obj", "../wavefront_objs/head/texture.tga")};
+  globalScene.lights = {Light3D(255, 255, 255, {0, 1, -1}),
+                        Light3D(255, 255, 255, {0, 1, 1}),
+                        Light3D(255, 255, 255, {0, 0, 0})};
+}
 
 int main(int argc, char** argv) {
   std::cout << "Version: " << __RENDERER_VERSION__ << std::endl;
-  model = WavefrontObjLoader::loadObjWavefrontObj("../wavefront_objs/head/model.obj");
   glutInit(&argc, argv);
   glutInitWindowPosition(0, 0);
   glutInitWindowSize(700, 700);
@@ -83,141 +97,131 @@ int main(int argc, char** argv) {
     exit(1);
   }
 
+  setupScene();
+  loadTextures();
+  
   glShadeModel(GL_FLAT);
   glFrontFace(GL_CW);
   glEnable(GL_DEPTH_TEST);
+
   glMatrixMode(GL_MODELVIEW);
   glRotatef(180.0, 0.0, 1.0, 0.0);
+
   glutKeyboardFunc(handleKeyboard);
   glutIdleFunc(glut_post_redisplay_p);
   glutDisplayFunc(mainRenderLoop);
   glutMainLoop();
+
   return 0;
+}
+
+void loadTextures() {
+  for (Object3D &object : globalScene.models) {
+    GLuint texture = 0;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, object.texture.width, object.texture.height, 0, GL_RGB, GL_UNSIGNED_BYTE, *object.texture.data);
+
+    object.texture.textureRef = texture;
+    object.texture.data.reset();
+  }
 }
 
 void mainRenderLoop() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
   if (rotate) {
     glRotatef(1.0, 0.0, 1.0, 0.0);
   }
+  
+  if (isLightningEnabled) {
+    globalScene.applyLightingToModels();
+  }
+
   switch (renderMethod) {
     case RENDER_WIREFRAME:
+      glDisable(GL_TEXTURE_2D);
       renderWireframe();
       break;
     case RENDER_GRAY_SCALE:
       renderWithGreyScale();
       break;
-    case RENDER_COLORED_LIGHT:
-      renderWithColoredLight();
+    case RENDER_TEXTURED:
+      glEnable(GL_TEXTURE_2D);
+      renderWithTexture();
       break;
     default:
       break;
   }
+
   glFlush();
   glutSwapBuffers();
 }
 
 void renderWireframe() {
-  for (const ObjectFace3D& face : model.faces) {
-    glBegin(GL_LINES);
-    glVertex3f(face.p0.x(), face.p0.y(), face.p0.z());
-    glVertex3f(face.p1.x(), face.p1.y(), face.p1.z());
-    glEnd();
-    glBegin(GL_LINES);
-    glVertex3f(face.p1.x(), face.p1.y(), face.p1.z());
-    glVertex3f(face.p2.x(), face.p2.y(), face.p2.z());
-    glEnd();
-    glBegin(GL_LINES);
-    glVertex3f(face.p2.x(), face.p2.y(), face.p2.z());
-    glVertex3f(face.p0.x(), face.p0.y(), face.p0.z());
-    glEnd();
+  glColor3f(1, 1, 1);
+  for (Object3D& model : globalScene.models) {
+    for (ObjectFace3D& face : model.faces) {
+      glBegin(GL_LINES);
+      glVertex3f(face.p0.x(), face.p0.y(), face.p0.z());
+      glVertex3f(face.p1.x(), face.p1.y(), face.p1.z());
+      glEnd();
+      glBegin(GL_LINES);
+      glVertex3f(face.p1.x(), face.p1.y(), face.p1.z());
+      glVertex3f(face.p2.x(), face.p2.y(), face.p2.z());
+      glEnd();
+      glBegin(GL_LINES);
+      glVertex3f(face.p2.x(), face.p2.y(), face.p2.z());
+      glVertex3f(face.p0.x(), face.p0.y(), face.p0.z());
+      glEnd();
+    }
   }
 }
 
 void renderWithGreyScale() {
-  const dVector3D light(0, 0.5, 1);
+  for (Object3D& model : globalScene.models) {
+    for (ObjectFace3D& face : model.faces) {
+      const dVector3D& p0 = face.p0;
+      const dVector3D& p1 = face.p1;
+      const dVector3D& p2 = face.p2;
+      const ColorRGB& color = face.color;
+      double lightning = (color.red + color.green + color.blue) / 3;
+      if (!isLightningEnabled) {
+        lightning = 1;
+      }
 
-  for (const ObjectFace3D& face : model.faces) {
-    const dVector3D& p0 = face.p0;
-    const dVector3D& p1 = face.p1;
-    const dVector3D& p2 = face.p2;
-
-    const dVector3D surfaceNormal = face.getSurfaceNormal();
-    float lightIntensity = (surfaceNormal % light);
-
-    if (lightIntensity < 0) {
-      lightIntensity = 0;
+      glBegin(GL_TRIANGLES);
+      glColor3f(lightning, lightning, lightning);
+      glVertex3f(p0.x(), p0.y(), p0.z());
+      glVertex3f(p1.x(), p1.y(), p1.z());
+      glVertex3f(p2.x(), p2.y(), p2.z());
+      glEnd();
     }
-
-    glBegin(GL_TRIANGLES);
-    glColor3f(lightIntensity, lightIntensity, lightIntensity);
-    glVertex3f(p0.x(), p0.y(), p0.z());
-    glVertex3f(p1.x(), p1.y(), p1.z());
-    glVertex3f(p2.x(), p2.y(), p2.z());
-    glEnd();
   }
 }
 
-void renderWithColoredLight() {
-  std::vector<Light3D> lights = {Light3D(0, 0, 140, {0, 1, -1}),
-                                 Light3D(140, 0, 0, {0, 1, 1}),
-                                 Light3D(0, 140, 0, {0, 0, 0})};
-
-  for (const ObjectFace3D& face : model.faces) {
-    const dVector3D& p0 = face.p0;
-    const dVector3D& p1 = face.p1;
-    const dVector3D& p2 = face.p2;
-    const dVector3D surfaceNormal =  face.getSurfaceNormal();
-
-    std::vector<std::pair<float, Light3D>> lightsIntensity;
-    lightsIntensity.resize(lights.size());
-
-    std::transform(lights.begin(), lights.end(), lightsIntensity.begin(),
-                   [&](const Light3D& light) -> std::pair<float, Light3D> {
-                     const float i = surfaceNormal % light.position;
-                     return std::make_pair(i, light);
-                   });
-
-    // Remove negative light intensity
-    lightsIntensity.erase(
-        std::remove_if(lightsIntensity.begin(), lightsIntensity.end(),
-                       [](const std::pair<float, Light3D>& light) {
-                         return light.first < 0;
-                       }),
-        lightsIntensity.end());
-
-    // Normalize light intensity
-    float magnitude = 0;
-    float maxLightIntensity = 0;
-    for (size_t i = 0; i < lightsIntensity.size(); ++i) {
-      magnitude += lightsIntensity[i].first;
-      if (lightsIntensity[i].first > maxLightIntensity) {
-        maxLightIntensity = lightsIntensity[i].first;
+void renderWithTexture() {
+  for (Object3D& model : globalScene.models) {
+    for (ObjectFace3D& face : model.faces) {
+      const dVector3D& p0 = face.p0;
+      const dVector3D& p1 = face.p1;
+      const dVector3D& p2 = face.p2;
+      ColorRGB& color = face.color;
+      if (!isLightningEnabled) {
+        color = ColorRGB(1, 1, 1);
       }
-    }
 
-    // After normalization get the color on `float`
-    for (size_t i = 0; i < lightsIntensity.size(); ++i) {
-      lightsIntensity[i].first =
-          (lightsIntensity[i].first / (magnitude * maxLightIntensity * 255.0f));
-      lightsIntensity[i].second.color.red *= lightsIntensity[i].first;
-      lightsIntensity[i].second.color.green *= lightsIntensity[i].first;
-      lightsIntensity[i].second.color.blue *= lightsIntensity[i].first;
+      glBindTexture(GL_TEXTURE_2D, model.texture.textureRef);
+      glBegin(GL_TRIANGLES);
+      glColor3f(color.red, color.green, color.blue);
+      glTexCoord2d(face.t0.x(), face.t0.y()); glVertex3d(p0.x(), p0.y(), p0.z());
+      glTexCoord2d(face.t1.x(), face.t1.y()); glVertex3d(p1.x(), p1.y(), p1.z());
+      glTexCoord2d(face.t2.x(), face.t2.y()); glVertex3d(p2.x(), p2.y(), p2.z());
+      glEnd();
     }
-
-    // Mix the colors
-    ColorRGB color = {0, 0, 0};
-    for (size_t i = 0; i < lightsIntensity.size(); ++i) {
-      color.red += lightsIntensity[i].second.color.red;
-      color.green += lightsIntensity[i].second.color.green;
-      color.blue += lightsIntensity[i].second.color.blue;
-    }
-
-    glBegin(GL_TRIANGLES);
-    glColor3f(color.red, color.green, color.blue);
-    glVertex3f(p0.x(), p0.y(), p0.z());
-    glVertex3f(p1.x(), p1.y(), p1.z());
-    glVertex3f(p2.x(), p2.y(), p2.z());
-    glEnd();
   }
 }

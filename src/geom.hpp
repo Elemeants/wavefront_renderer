@@ -22,12 +22,13 @@ class Vector {
 
   friend std::ostream& operator<<(std::ostream& out,
                                   const Vector<T, dimensions>& classObj) {
-    out << '[ ';
+    out << "[ ";
     for (int i = 0; i < dimensions; ++i) {
-      out << classObj[i];
-      if (i < (dimensions - 1)) out << ', ';
+      out << classObj._Data[i];
+      if (i < (dimensions - 1)) out << ", ";
     }
-    out << ' ]';
+    out << " ]";
+    return out;
   }
 };
 

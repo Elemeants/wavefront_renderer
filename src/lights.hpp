@@ -1,18 +1,7 @@
 #pragma once
 
 #include "geom.hpp"
-
-class ColorRGB {
-public:
-  float red;
-  float green;
-  float blue;
-
-  ColorRGB() : red(0.0), green(0.0), blue(0.0) {}
-
-  ColorRGB(float red, float green, float blue) :
-    red(red), green(green), blue(blue) {}
-};
+#include "colors.hpp"
 
 #define COLOR_WHITE ColorRGB(255, 255, 255)
 #define COLOR_RED ColorRGB(255, 0, 0)
