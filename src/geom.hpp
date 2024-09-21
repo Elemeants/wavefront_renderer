@@ -64,7 +64,7 @@ Vector<T, dimensions> operator*(const Vector<T, dimensions>& left,
 
 template <typename T, std::size_t dimensions>
 Vector<T, dimensions> operator*(const Vector<T, dimensions>& left,
-                                const float right) {
+                                const double right) {
   Vector<T, dimensions> result;
   for (size_t i = 0; i < dimensions; ++i) {
     result._Data[i] = left._Data[i] * right;
@@ -73,9 +73,9 @@ Vector<T, dimensions> operator*(const Vector<T, dimensions>& left,
 }
 
 template <typename T, std::size_t dimensions>
-float operator%(const Vector<T, dimensions>& left,
+double operator%(const Vector<T, dimensions>& left,
                 const Vector<T, dimensions>& right) {
-  float result = 0;
+  double result = 0;
   for (size_t i = 0; i < dimensions; ++i) {
     result += left._Data[i] * right._Data[i];
   }

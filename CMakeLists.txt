@@ -2,7 +2,7 @@
 # Project settings
 # #########################################################################
 cmake_minimum_required(VERSION 3.1.0)
-project(wavefront_renderer VERSION 0.1)
+project(wavefront_renderer VERSION 0.2)
 set(PROJECT_NAME wavefront_renderer)
 
 set(CMAKE_CXX_STANDARD 17)

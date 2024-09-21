@@ -12,13 +12,23 @@ class ObjectFace3D {
   dVector3D p0;
   dVector3D p1;
   dVector3D p2;
-  ColorRGB color;
+
+  ColorRGB color0;
+  ColorRGB color1;
+  ColorRGB color2;
 
   dVector3D t0;
   dVector3D t1;
   dVector3D t2;
 
+  dVector3D p0n;
+  dVector3D p1n;
+  dVector3D p2n;
+
   dVector3D getSurfaceNormal() const { return ~((p1 - p0) ^ (p2 - p0)); }
+  dVector3D getVertex0Normal() const { return (p0 + p0n); }
+  dVector3D getVertex1Normal() const { return (p1 + p1n); }
+  dVector3D getVertex2Normal() const { return (p2 + p2n); }
 };
 
 class Texture2D {

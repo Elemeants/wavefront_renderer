@@ -19,6 +19,11 @@
 #define ALLOW_WAVEFRONT_LOADING_TEXTURE_DEBUG_LOGS false
 
 class WavefrontObjLoader {
+  typedef struct {
+    std::vector<int> vertices;
+    std::vector<int> textureVertices;
+    std::vector<int> normalVertices;
+  } rawFace_t;
  public:
   static Object3D loadObjWavefrontObj(const std::string filename, const std::string texturePath) {
     Object3D model = WavefrontObjLoader::loadObjWavefrontObj(filename);
@@ -31,7 +36,8 @@ class WavefrontObjLoader {
 
     std::vector<dVector3D> vertices;
     std::vector<dVector3D> textureVectices;
-    std::vector<std::pair<std::vector<int>, std::vector<int>>> faces;
+    std::vector<dVector3D> normalVectices;
+    std::vector<rawFace_t> faces;
 
     std::ifstream in;
     std::cout << "Loading wavefront obj path: " << filename << std::endl;
@@ -46,6 +52,7 @@ class WavefrontObjLoader {
       std::getline(in, line);
       bool is3DPoint = line.compare(0, 2, "v ") == 0;
       bool isTexture = line.compare(0, 3, "vt ") == 0;
+      bool isNormal = line.compare(0, 3, "vn ") == 0;
       bool isFace = line.compare(0, 2, "f ") == 0;
 
       if (is3DPoint) {
@@ -62,12 +69,20 @@ class WavefrontObjLoader {
         std::cout << "vt " << point.x() << " " << point.y() << " " << point.z()
                   << std::endl;
 #endif
+      } else if (isNormal) {
+        dVector3D point = WavefrontObjLoader::parseVectorLine(line);
+        normalVectices.push_back(point);
+#if ALLOW_WAVEFRONT_FILE_PARSING_DEBUG_LOGS
+        std::cout << "vt " << point.x() << " " << point.y() << " " << point.z()
+                  << std::endl;
+#endif
       } else if (isFace) {
-        std::pair<std::vector<int>, std::vector<int>> face = WavefrontObjLoader::parseFace(line);
+        rawFace_t face = WavefrontObjLoader::parseFace(line);
         faces.push_back(face);
 #if ALLOW_WAVEFRONT_FILE_PARSING_DEBUG_LOGS
-        std::cout << "f " << face.first[0] << " " << face.first[1] << " " << face.first[2]
-                  << " t " << face.second[0] << " " << face.second[1] << " " << face.second[2]
+        std::cout << "f " << face.vertices[0] << " " << face.vertices[1] << " " << face.vertices[2]
+                  << " t " << face.textureVertices[0] << " " << face.textureVertices[1] << " " << face.textureVertices[2]
+                  << " n " << face.normalVertices[0] << " " << face.normalVertices[1] << " " << face.normalVertices[2]
                   << std::endl;
 #endif
       }
@@ -77,13 +92,17 @@ class WavefrontObjLoader {
     model.faces.reserve(faces.size());
     for (size_t i = 0; i < faces.size(); i++) {
       ObjectFace3D face;
-      face.p0 = vertices[faces[i].first[0]];
-      face.p1 = vertices[faces[i].first[1]];
-      face.p2 = vertices[faces[i].first[2]];
+      face.p0 = vertices[faces[i].vertices[0]];
+      face.p1 = vertices[faces[i].vertices[1]];
+      face.p2 = vertices[faces[i].vertices[2]];
 
-      face.t0 = textureVectices[faces[i].second[0]];
-      face.t1 = textureVectices[faces[i].second[1]];
-      face.t2 = textureVectices[faces[i].second[2]];
+      face.t0 = textureVectices[faces[i].textureVertices[0]];
+      face.t1 = textureVectices[faces[i].textureVertices[1]];
+      face.t2 = textureVectices[faces[i].textureVertices[2]];
+
+      face.p0n = normalVectices[faces[i].normalVertices[0]];
+      face.p1n = normalVectices[faces[i].normalVertices[1]];
+      face.p2n = normalVectices[faces[i].normalVertices[2]];
       model.faces.push_back(face);
 
 #if ALLOW_WAVEFRONT_FACES_PARSING_DEBUG_LOGS
@@ -109,12 +128,12 @@ class WavefrontObjLoader {
     return point;
   }
 
-  static std::pair<std::vector<int>, std::vector<int>> parseFace(const std::string& line) {
+  static rawFace_t parseFace(const std::string& line) {
     const char* s = line.c_str();
-    std::vector<int> vertices;
-    std::vector<int> texture_vertices;
-    vertices.reserve(3);
-    texture_vertices.reserve(3);
+    rawFace_t face;
+    face.vertices.reserve(3);
+    face.textureVertices.reserve(3);
+    face.normalVertices.reserve(3);
 
     std::stringstream ss;
     ss.str(s);
@@ -128,19 +147,20 @@ class WavefrontObjLoader {
       // Parse the index (starts with 0 so remove 1)
       const std::string p = f.substr(0, c);
       const int vertex_index = std::atoi(p.c_str()) - 1;
-      vertices.push_back(vertex_index);
+      face.vertices.push_back(vertex_index);
 
       const size_t c2 = f.find('/', c + 1);
       const std::string p2 = f.substr(c + 1, ((c2 - 1) - c));
-
-#if ALLOW_WAVEFRONT_FILE_PARSING_DEBUG_LOGS
-      std::cout << f << " = " << c << " " << p << ", " << c2 << " " << p2 << std::endl;
-#endif
       const int texture_vertex = std::atoi(p2.c_str()) - 1;
-      texture_vertices.push_back(texture_vertex);
+      face.textureVertices.push_back(texture_vertex);
+
+      const size_t c3 = f.find('/', c2 + 1);
+      const std::string p3 = f.substr(c2 + 1, ((c3 - 1) - c2));
+      const int normalVertices = std::atoi(p3.c_str()) - 1;
+      face.normalVertices.push_back(normalVertices);
     }
 
-    return {vertices, texture_vertices};
+    return face;
   }
 
   static Texture2D loadTexture(const std::string& path) {
