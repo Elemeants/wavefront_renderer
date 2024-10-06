@@ -6,6 +6,7 @@ But instead of using a TGA image to store the rendering, I'm using FreeGLUT inst
 
 # Some examples
 
+![](https://raw.githubusercontent.com/Elemeants/wavefront_renderer/main/imgs/HeadDiffuse.png)
 ![](https://raw.githubusercontent.com/Elemeants/wavefront_renderer/main/imgs/HeadTexture.png)
 ![](https://raw.githubusercontent.com/Elemeants/wavefront_renderer/main/imgs/DiabloTexture.png)
 ![](https://raw.githubusercontent.com/Elemeants/wavefront_renderer/main/imgs/DiabloTesting.png)

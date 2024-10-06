@@ -33,17 +33,18 @@ class Scene {
   ColorRGB applyGouraud(const dVector3D& surfaceNormal) const {
     const Light3D& light = lights[0];
 
-    const double k_d = 0.7;
-    const double k_s = 0.8;
-    const double k_a = 0.05;
-    const double i_a = 0.05;
+    const double k_d = 0.005;
+    // const double k_s = 0.0;
+    const double k_a = 0.005;
+    const double i_a = 0.09;
 
     const double ambient = k_a * i_a;
     const double diffuse = (k_d * 0.5 * (surfaceNormal % light.position));
 
-    const dVector3D lightReflection = (surfaceNormal * ((light.position % surfaceNormal) * 2.0)) - light.position; 
-    const double specular = (k_s * pow(std::max(lightReflection % dVector3D(1, -1, 1), 0.0), 256));
-    const double I_a = ambient + std::max(diffuse + specular, 0.0);
+    // const dVector3D lightgReflection = (surfaceNormal * ((light.position % surfaceNormal) * 2.0)) - light.position;
+    // Doesn't work with current implementation, needs "fragment" shader to work.
+    // const double specular = (k_s * pow(std::max(lightReflection % dVector3D(1, -1, 1), 0.0), 256));
+    const double I_a = ambient + std::max(diffuse, 0.0);
 
     return light.color * std::min(I_a, 1.0);
   }

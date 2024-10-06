@@ -1,7 +1,7 @@
 # #########################################################################
 # Project settings
 # #########################################################################
-cmake_minimum_required(VERSION 3.1.0)
+cmake_minimum_required(VERSION 3.26.0)
 project(wavefront_renderer VERSION 0.2)
 set(PROJECT_NAME wavefront_renderer)
 

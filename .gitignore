@@ -2,4 +2,6 @@
 *.dll
 *.lib
 .vscode/
+.idea/
 build/
+/cmake-*/
